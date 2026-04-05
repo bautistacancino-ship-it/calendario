@@ -1,0 +1,5 @@
+{
+  "name": "Horarios Puky & Bauti",
+  "description": "Gestor de horarios de clases minimalista para Puky y Bauti con integración de Supabase en tiempo real.",
+  "requestFramePermissions": []
+}

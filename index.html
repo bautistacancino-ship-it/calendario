@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horarios Puky & Bauti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --puky-warm: #FFEDD5;
+            --puky-text: #9A3412;
+            --bauti-cold: #E0F2FE;
+            --bauti-text: #075985;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #FDFCFB;
+        }
+        .organic-card {
+            border-radius: 24px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .organic-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -10px rgba(0,0,0,0.08);
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1.5rem;
+        }
+        @media (max-width: 1024px) {
+            .calendar-grid { grid-template-columns: 1fr; }
+        }
+        .input-field {
+            background: #F3F4F6;
+            border: 2px solid transparent;
+            border-radius: 16px;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s;
+        }
+        .input-field:focus {
+            border-color: #E5E7EB;
+            background: white;
+            outline: none;
+        }
+        .btn-primary {
+            background: #111827;
+            color: white;
+            border-radius: 16px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            background: #374151;
+            transform: scale(1.02);
+        }
+        .class-card {
+            border-radius: 18px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .delete-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .class-card:hover .delete-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <h1 class="text-4xl font-semibold tracking-tight text-slate-900 mb-2">Horarios de Clases</h1>
+                <p class="text-slate-500 font-light">Gestión compartida para Puky y Bauti</p>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="flex gap-4">
+                <div class="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100">
+                    <span class="text-orange-700 font-medium text-sm">Puky</span>
+                </div>
+                <div class="bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100">
+                    <span class="text-blue-700 font-medium text-sm">Bauti</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-12">
+            <!-- Form Section -->
+            <aside class="lg:col-span-1">
+                <div class="bg-white p-8 organic-card border border-slate-100 shadow-sm sticky top-8">
+                    <h2 class="text-xl font-medium mb-6">Nueva Clase</h2>
+                    <form id="horarioForm" class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Usuario</label>
+                            <select id="usuario" class="w-full input-field" required>
+                                <option value="Puky">Puky</option>
+                                <option value="Bauti">Bauti</option>
+                            </select>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Materia</label>
+                            <input type="text" id="materia" placeholder="Ej: Matemáticas" class="w-full input-field" required>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Día</label>
+                            <select id="dia_semana" class="w-full input-field" required>
+                                <option value="Lunes">Lunes</option>
+                                <option value="Martes">Martes</option>
+                                <option value="Miércoles">Miércoles</option>
+                                <option value="Jueves">Jueves</option>
+                                <option value="Viernes">Viernes</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Inicio</label>
+                                <input type="time" id="hora_inicio" class="w-full input-field" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider ml-1">Fin</label>
+                                <input type="time" id="hora_fin" class="w-full input-field" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full btn-primary mt-4">Registrar Clase</button>
+                    </form>
+                </div>
+            </aside>
+
+            <!-- Calendar Section -->
+            <main class="lg:col-span-3">
+                <div class="calendar-grid" id="calendar">
+                    <!-- Days will be injected here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Supabase Config Modal (Only if keys are missing) -->
+    <div id="configModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white p-8 rounded-[32px] max-w-md w-full shadow-2xl">
+            <h3 class="text-2xl font-semibold mb-4">Configurar Supabase</h3>
+            <p class="text-slate-500 mb-6 text-sm">Por favor, ingresa tus credenciales de Supabase para comenzar.</p>
+            <div class="space-y-4">
+                <input type="text" id="configUrl" placeholder="Supabase URL" class="w-full input-field">
+                <input type="password" id="configKey" placeholder="Anon Key" class="w-full input-field">
+                <button onclick="saveConfig()" class="w-full btn-primary">Conectar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        let SUPABASE_URL = "https://fyslctqeikfblusqhldq.supabase.co";
+        let SUPABASE_ANON_KEY = "sb_publishable_RTcg1VorlIgCshDCok4O4A_SrU7mHXW";
+
+        let supabaseClient;
+
+        const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+        // --- INITIALIZATION ---
+        function initApp() {
+            const savedUrl = localStorage.getItem('supabase_url');
+            const savedKey = localStorage.getItem('supabase_key');
+
+            if (savedUrl && savedKey) {
+                SUPABASE_URL = savedUrl;
+                SUPABASE_ANON_KEY = savedKey;
+                connectSupabase();
+            } else {
+                document.getElementById('configModal').classList.remove('hidden');
+                document.getElementById('configModal').classList.add('flex');
+            }
+            renderCalendarSkeleton();
+        }
+
+        function saveConfig() {
+            const url = document.getElementById('configUrl').value;
+            const key = document.getElementById('configKey').value;
+            if (url && key) {
+                localStorage.setItem('supabase_url', url);
+                localStorage.setItem('supabase_key', key);
+                location.reload();
+            }
+        }
+
+        function connectSupabase() {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            loadHorarios();
+            subscribeToChanges();
+        }
+
+        // --- UI RENDERING ---
+        function renderCalendarSkeleton() {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+            dias.forEach(dia => {
+                const dayCol = document.createElement('div');
+                dayCol.className = 'space-y-4';
+                dayCol.innerHTML = `
+                    <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-6 text-center">${dia}</h3>
+                    <div id="day-${dia}" class="min-h-[200px]"></div>
+                `;
+                calendar.appendChild(dayCol);
+            });
+        }
+
+        async function loadHorarios() {
+            const { data, error } = await supabaseClient
+                .from('horarios')
+                .select('*')
+                .order('hora_inicio', { ascending: true });
+
+            if (error) {
+                console.error('Error loading data:', error);
+                return;
+            }
+
+            renderHorarios(data);
+        }
+
+        function renderHorarios(horarios) {
+            // Clear all day containers
+            dias.forEach(dia => {
+                document.getElementById(`day-${dia}`).innerHTML = '';
+            });
+
+            horarios.forEach(h => {
+                const container = document.getElementById(`day-${h.dia_semana}`);
+                if (container) {
+                    const card = document.createElement('div');
+                    const isPuky = h.usuario === 'Puky';
+                    card.className = `class-card ${isPuky ? 'bg-[#FFEDD5] border-[#FED7AA]' : 'bg-[#E0F2FE] border-[#BAE6FD]'}`;
+                    
+                    card.innerHTML = `
+                        <button class="delete-btn text-slate-400 hover:text-red-500" onclick="deleteClase('${h.id}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                        </button>
+                        <div class="text-[10px] uppercase font-bold tracking-wider mb-1 ${isPuky ? 'text-orange-700' : 'text-blue-700'}">${h.usuario}</div>
+                        <div class="font-semibold text-slate-800 mb-2 leading-tight">${h.materia}</div>
+                        <div class="flex items-center gap-1 text-[11px] text-slate-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            ${h.hora_inicio} - ${h.hora_fin}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                }
+            });
+        }
+
+        // --- ACTIONS ---
+        document.getElementById('horarioForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true;
+            btn.innerText = 'Guardando...';
+
+            const newClase = {
+                usuario: document.getElementById('usuario').value,
+                materia: document.getElementById('materia').value,
+                dia_semana: document.getElementById('dia_semana').value,
+                hora_inicio: document.getElementById('hora_inicio').value,
+                hora_fin: document.getElementById('hora_fin').value
+            };
+
+            const { error } = await supabaseClient.from('horarios').insert([newClase]);
+
+            if (error) {
+                alert('Error al guardar: ' + error.message);
+            } else {
+                e.target.reset();
+            }
+            
+            btn.disabled = false;
+            btn.innerText = 'Registrar Clase';
+        });
+
+        async function deleteClase(id) {
+            if (confirm('¿Eliminar esta clase?')) {
+                const { error } = await supabaseClient.from('horarios').delete().eq('id', id);
+                if (error) alert('Error al eliminar: ' + error.message);
+            }
+        }
+
+        function subscribeToChanges() {
+            supabaseClient
+                .channel('public:horarios')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'horarios' }, () => {
+                    loadHorarios();
+                })
+                .subscribe();
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
+
