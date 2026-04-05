@@ -87,14 +87,17 @@
                 <p class="text-slate-500 font-light">Gestión compartida para Puky y Bauti</p>
             </div>
             
-            <!-- Quick Stats -->
-            <div class="flex gap-4">
-                <div class="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100">
-                    <span class="text-orange-700 font-medium text-sm">Puky</span>
-                </div>
-                <div class="bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100">
-                    <span class="text-blue-700 font-medium text-sm">Bauti</span>
-                </div>
+            <!-- Filtros -->
+            <div class="flex gap-4" id="userFilters">
+                <button onclick="setFilter('all')" id="filter-all" class="px-4 py-2 rounded-2xl border transition-all text-sm font-medium bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200">
+                    Todos
+                </button>
+                <button onclick="setFilter('Puky')" id="filter-Puky" class="px-4 py-2 rounded-2xl border transition-all text-sm font-medium bg-white border-orange-100 text-orange-700 hover:bg-orange-50">
+                    Puky
+                </button>
+                <button onclick="setFilter('Bauti')" id="filter-Bauti" class="px-4 py-2 rounded-2xl border transition-all text-sm font-medium bg-white border-blue-100 text-blue-700 hover:bg-blue-50">
+                    Bauti
+                </button>
             </div>
         </header>
 
@@ -172,6 +175,8 @@
         let SUPABASE_ANON_KEY = "sb_publishable_RTcg1VorlIgCshDCok4O4A_SrU7mHXW";
 
         let supabaseClient;
+        let currentHorarios = [];
+        let activeFilter = 'all';
 
         const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
 
@@ -233,35 +238,80 @@
                 return;
             }
 
-            renderHorarios(data);
+            currentHorarios = data;
+            renderHorarios();
         }
 
-        function renderHorarios(horarios) {
+        function setFilter(filter) {
+            activeFilter = filter;
+            
+            // Update UI buttons
+            const filters = ['all', 'Puky', 'Bauti'];
+            filters.forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filter) {
+                    btn.classList.add('ring-2', 'ring-offset-2', 'ring-slate-400');
+                    if (f === 'all') btn.className = btn.className.replace('bg-slate-100', 'bg-slate-800').replace('text-slate-600', 'text-white');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-400');
+                    if (f === 'all') btn.className = btn.className.replace('bg-slate-800', 'bg-slate-100').replace('text-white', 'text-slate-600');
+                }
+            });
+
+            renderHorarios();
+        }
+
+        function renderHorarios() {
+            // Filter data
+            const filtered = activeFilter === 'all' 
+                ? currentHorarios 
+                : currentHorarios.filter(h => h.usuario === activeFilter);
+
             // Clear all day containers
             dias.forEach(dia => {
                 document.getElementById(`day-${dia}`).innerHTML = '';
             });
 
-            horarios.forEach(h => {
-                const container = document.getElementById(`day-${h.dia_semana}`);
-                if (container) {
-                    const card = document.createElement('div');
-                    const isPuky = h.usuario === 'Puky';
-                    card.className = `class-card ${isPuky ? 'bg-[#FFEDD5] border-[#FED7AA]' : 'bg-[#E0F2FE] border-[#BAE6FD]'}`;
-                    
-                    card.innerHTML = `
-                        <button class="delete-btn text-slate-400 hover:text-red-500" onclick="deleteClase('${h.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                        </button>
-                        <div class="text-[10px] uppercase font-bold tracking-wider mb-1 ${isPuky ? 'text-orange-700' : 'text-blue-700'}">${h.usuario}</div>
-                        <div class="font-semibold text-slate-800 mb-2 leading-tight">${h.materia}</div>
-                        <div class="flex items-center gap-1 text-[11px] text-slate-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            ${h.hora_inicio} - ${h.hora_fin}
-                        </div>
-                    `;
-                    container.appendChild(card);
-                }
+            // Group by day and then by start time for side-by-side
+            dias.forEach(dia => {
+                const container = document.getElementById(`day-${dia}`);
+                const dayClasses = filtered.filter(h => h.dia_semana === dia);
+                
+                // Group by start time
+                const timeGroups = {};
+                dayClasses.forEach(h => {
+                    if (!timeGroups[h.hora_inicio]) timeGroups[h.hora_inicio] = [];
+                    timeGroups[h.hora_inicio].push(h);
+                });
+
+                // Sort times
+                const sortedTimes = Object.keys(timeGroups).sort();
+
+                sortedTimes.forEach(time => {
+                    const group = timeGroups[time];
+                    const row = document.createElement('div');
+                    row.className = 'flex gap-2 mb-3'; // Container for side-by-side
+
+                    group.forEach(h => {
+                        const card = document.createElement('div');
+                        const isPuky = h.usuario === 'Puky';
+                        card.className = `class-card flex-1 ${isPuky ? 'bg-[#FFEDD5] border-[#FED7AA]' : 'bg-[#E0F2FE] border-[#BAE6FD]'}`;
+                        
+                        card.innerHTML = `
+                            <button class="delete-btn text-slate-400 hover:text-red-500" onclick="deleteClase('${h.id}')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            </button>
+                            <div class="text-[10px] uppercase font-bold tracking-wider mb-1 ${isPuky ? 'text-orange-700' : 'text-blue-700'}">${h.usuario}</div>
+                            <div class="font-semibold text-slate-800 mb-2 leading-tight">${h.materia}</div>
+                            <div class="flex items-center gap-1 text-[11px] text-slate-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                ${h.hora_inicio} - ${h.hora_fin}
+                            </div>
+                        `;
+                        row.appendChild(card);
+                    });
+                    container.appendChild(row);
+                });
             });
         }
 
